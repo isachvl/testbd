@@ -1,0 +1,125 @@
+ЗАПУСК ТЕСТА
+(venv) PS D:\python\testSQL> python -m pytest -v
+============================================================================= test session starts =============================================================================
+platform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.7.0 -- D:\python\testSQL\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\python\testSQL
+collected 1 item                                                                                                                                                               
+
+test_db.py::test_db_connection PASSED                                                                                                                                    [100%]
+
+============================================================================== 1 passed in 0.27s ==============================================================================
+(venv) PS D:\python\testSQL> 
+
+НЕПРАВИЛЬНЫЙ ПАРОЛЬ
+(venv) PS D:\python\testSQL> $env:DB_PASSWORD = "wrong_password"
+(venv) PS D:\python\testSQL> python -m pytest -v                
+============================================================================= test session starts =============================================================================
+platform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.7.0 -- D:\python\testSQL\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\python\testSQL
+collected 1 item                                                                                                                                                               
+
+test_db.py::test_db_connection FAILED                                                                                                                                    [100%]
+
+================================================================================== FAILURES ===================================================================================
+_____________________________________________________________________________ test_db_connection ______________________________________________________________________________
+
+    def test_db_connection():
+>       with psycopg.connect(
+            host=os.getenv("DB_HOST", "localhost"),
+            port=os.getenv("DB_PORT", "5432"),
+            dbname=os.getenv("DB_NAME", "intern_db"),
+            user=os.getenv("DB_USER", "intern"),
+            password=os.getenv("DB_PASSWORD", "intern123"),
+            connect_timeout=5,
+        ) as connection:
+
+test_db.py:8: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'psycopg.Connection'>, conninfo = 'host=localhost port=5432 dbname=intern_db user=intern password=wrong_password connect_timeout=5 hostaddr=127.0.0.1'
+autocommit = False, prepare_threshold = 5, context = None, row_factory = None, cursor_factory = None
+kwargs = {'host': 'localhost', 'port': '5432', 'dbname': 'intern_db', 'user': 'intern', ...}
+
+    @classmethod
+    def connect(
+        cls,
+        conninfo: str = "",
+        *,
+        autocommit: bool = False,
+        prepare_threshold: int | None = 5,
+        context: AdaptContext | None = None,
+        row_factory: RowFactory[Row] | None = None,
+        cursor_factory: type[Cursor[Row]] | None = None,
+        **kwargs: ConnParam,
+    ) -> Self:
+        """
+        Connect to a database server and return a new `Connection` instance.
+        """
+    
+        params = cls._get_connection_params(conninfo, **kwargs)
+        timeout = timeout_from_conninfo(params)
+        rv = None
+        attempts = conninfo_attempts(params)
+        conn_errors: list[tuple[e.Error, str]] = []
+        for attempt in attempts:
+            tdescr = (attempt.get("host"), attempt.get("port"), attempt.get("hostaddr"))
+            descr = "host: %r, port: %r, hostaddr: %r" % tdescr
+            logger.debug("connection attempt: %s", descr)
+            try:
+                conninfo = make_conninfo("", **attempt)
+                gen = cls._connect_gen(conninfo)
+                rv = waiting.wait_conn(gen, interval=_WAIT_INTERVAL, timeout=timeout)
+            except e._WaitTimeout:
+                tex = e.ConnectionTimeout("connection timeout expired")
+                logger.debug("connection failed: %s: %s", descr, str(tex))
+                conn_errors.append((tex, descr))
+            except e.Error as ex:
+                logger.debug("connection failed: %s: %s", descr, str(ex))
+                conn_errors.append((ex, descr))
+            except e._NO_TRACEBACK as ex:
+                raise ex.with_traceback(None)
+            else:
+                logger.debug("connection succeeded: %s", descr)
+                break
+    
+        if not rv:
+            last_ex = conn_errors[-1][0]
+            if len(conn_errors) == 1:
+                raise last_ex.with_traceback(None)
+    
+            # Create a new exception with the same type as the last one, containing
+            # all attempt errors while preserving backward compatibility.
+            lines = [str(last_ex)]
+            lines.append("Multiple connection attempts failed. All failures were:")
+            lines.extend((f"- {descr}: {error}" for error, descr in conn_errors))
+            new_ex = type(last_ex)("\n".join(lines), pgconn=last_ex.pgconn)
+>           raise new_ex.with_traceback(None)
+E           psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5432 failed: FATAL:  password authentication failed for user "intern"
+E           Multiple connection attempts failed. All failures were:
+E           - host: 'localhost', port: '5432', hostaddr: '::1': connection failed: connection to server at "::1", port 5432 failed: FATAL:  password authentication failed for user "intern"
+E           - host: 'localhost', port: '5432', hostaddr: '127.0.0.1': connection failed: connection to server at "127.0.0.1", port 5432 failed: FATAL:  password authenticationfailed for user "intern"
+
+venv\lib\site-packages\psycopg\connection.py:134: OperationalError
+=========================================================================== short test summary info ===========================================================================
+FAILED test_db.py::test_db_connection - psycopg.OperationalError: connection failed: connection to server at "127.0.0.1", port 5432 failed: FATAL:  password authentication failed for user "intern"
+============================================================================== 1 failed in 0.39s ==============================================================================
+(venv) PS D:\python\testSQL> 
+
+
+ВЕРНЕМ ПАРОЛЬ 
+
+
+(venv) PS D:\python\testSQL> Remove-Item Env:DB_PASSWORD
+(venv) PS D:\python\testSQL> python -m pytest -v        
+============================================================================= test session starts =============================================================================
+platform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.7.0 -- D:\python\testSQL\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\python\testSQL
+collected 1 item                                                                                                                                                               
+
+test_db.py::test_db_connection PASSED                                                                                                                                    [100%]
+
+============================================================================== 1 passed in 0.25s ==============================================================================
+(venv) PS D:\python\testSQL> 

@@ -1,0 +1,78 @@
+PS D:\python\testSQL> docker run --name intern-postgres -e POSTGRES_USER=intern -e POSTGRES_PASSWORD=intern123 -e POSTGRES_DB=intern_db -p 5432:5432 -d postgres:17
+Unable to find image 'postgres:17' locally
+17: Pulling from library/postgres
+2ab475e318db: Pull complete 
+633cb7982454: Pull complete 
+0ec7842b4287: Pull complete 
+bee16f784947: Pull complete 
+a5bccd2244f9: Pull complete 
+d1b142a2d3ac: Pull complete 
+0f6d195ee345: Pull complete 
+515b4b00cc07: Pull complete 
+90d33c82e6b4: Pull complete 
+f2be67225471: Pull complete 
+e0428ef87eb8: Pull complete 
+d38aaa71d21a: Pull complete 
+99b43abe6052: Pull complete 
+c9b382b1f732: Pull complete 
+dbfab41aea6a: Download complete 
+24468b3cc01f: Download complete 
+Digest: sha256:b8faeff7712663c2773a190181e1246e37e364b887611c04658c28b44e2408fe
+Status: Downloaded newer image for postgres:17
+e5f0e5e831a9e30116150b554d0dd2eac262f0b029819d763b9593dfcdd1840a
+PS D:\python\testSQL> docker exec intern-postgres pg_isready -U intern -d intern_db
+/var/run/postgresql:5432 - accepting connections
+PS D:\python\testSQL> docker cp setup.sql intern-postgres:/tmp/setup.sql
+Successfully copied 3.07kB to intern-postgres:/tmp/setup.sql
+PS D:\python\testSQL> docker exec intern-postgres psql -U intern -d intern_db -f /tmp/setup.sql
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 4
+INSERT 0 5
+INSERT 0 7
+PS D:\python\testSQL> docker cp queries.sql intern-postgres:/tmp/queries.sql
+Successfully copied 3.58kB to intern-postgres:/tmp/queries.sql
+PS D:\python\testSQL> docker exec intern-postgres psql -U intern -d intern_db -f /tmp/queries.sql
+ client_id |  full_name   |    city     | registered_at 
+-----------+--------------+-------------+---------------
+         1 | Иван Петров  | Новосибирск | 2025-02-10
+         4 | Мария Орлова | Новосибирск | 2025-09-01
+(2 rows)
+
+ currency | account_count 
+----------+---------------
+ RUB      |             3
+ USD      |             1
+(2 rows)
+
+ client_id |  full_name   | total_in 
+-----------+--------------+----------
+         4 | Мария Орлова |        0
+         2 | Анна Иванова |     1800
+         3 | Олег Сидоров |        0
+         1 | Иван Петров  |     1000
+(4 rows)
+
+ client_id |  full_name   |    city     | registered_at 
+-----------+--------------+-------------+---------------
+         4 | Мария Орлова | Новосибирск | 2025-09-01
+(1 row)
+
+ client_id |  full_name  | account_count 
+-----------+-------------+---------------
+         1 | Иван Петров |             3
+(1 row)
+
+ account_id |       tx_date       | amount | duplicate_count 
+------------+---------------------+--------+-----------------
+          4 | 2025-04-02 12:00:00 |    900 |               2
+(1 row)
+
+        month        | client_id |  full_name   | total_out | place 
+---------------------+-----------+--------------+-----------+-------
+ 2025-03-01 00:00:00 |         2 | Анна Иванова |       700 |     1
+ 2025-03-01 00:00:00 |         1 | Иван Петров  |       300 |     2
+ 2025-03-01 00:00:00 |         3 | Олег Сидоров |       200 |     3
+ 2025-04-01 00:00:00 |         1 | Иван Петров  |       500 |     1
+(4 rows)
